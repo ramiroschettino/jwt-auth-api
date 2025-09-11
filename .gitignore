@@ -1,2 +1,5 @@
-
-.env *.env docker-compose-data/ vendor/ *.log
+.env
+*.env
+docker-compose-data/
+vendor/
+*.log
