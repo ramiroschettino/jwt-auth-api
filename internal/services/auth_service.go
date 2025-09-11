@@ -13,11 +13,11 @@ import (
 
 type AuthService struct {
 	userRepo *repositories.UserRepository
-	cfg      *config.Config
+	Cfg      *config.Config
 }
 
 func NewAuthService(userRepo *repositories.UserRepository, cfg *config.Config) *AuthService {
-	return &AuthService{userRepo: userRepo, cfg: cfg}
+	return &AuthService{userRepo: userRepo, Cfg: cfg}
 }
 
 func (s *AuthService) Register(username, password, role string) (*models.User, error) {
@@ -52,10 +52,10 @@ func (s *AuthService) Login(username, password string) (string, error) {
 		"user_id":  user.ID,
 		"username": user.Username,
 		"role":     user.Role,
-		"exp":      time.Now().Add(s.cfg.JWTExpiration).Unix(),
+		"exp":      time.Now().Add(s.Cfg.JWTExpiration).Unix(),
 	})
 
-	tokenString, err := token.SignedString([]byte(s.cfg.JWTSecret))
+	tokenString, err := token.SignedString([]byte(s.Cfg.JWTSecret))
 	if err != nil {
 		return "", err
 	}
