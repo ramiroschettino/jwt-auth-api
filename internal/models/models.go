@@ -1,1 +1,25 @@
+package models
 
+import (
+	"gorm.io/gorm"
+)
+
+type User struct {
+	gorm.Model
+	Username string `gorm:"unique;not null"`
+	Password string `gorm:"not null"`
+	Role     string `gorm:"not null"`
+}
+
+type Note struct {
+	gorm.Model
+	Title   string `gorm:"not null"`
+	Content string
+	UserID  uint `gorm:"not null"`
+}
+
+type TokenClaims struct {
+	UserID   uint   `json:"user_id"`
+	Username string `json:"username"`
+	Role     string `json:"role"`
+}
