@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// Definir tipo propio para claves de contexto
 type ctxKey string
 
 const (
@@ -26,7 +25,6 @@ const (
 	ctxRole     ctxKey = "role"
 )
 
-// APIHandler contiene las dependencias de la API
 type APIHandler struct {
 	authService *services.AuthService
 	noteService *services.NoteService
@@ -39,7 +37,6 @@ func main() {
 		log.Fatal("Error conectando a la DB: ", err)
 	}
 
-	// Inicializar repositorios y servicios
 	userRepo := repositories.NewUserRepository(db)
 	noteRepo := repositories.NewNoteRepository(db)
 	authService := services.NewAuthService(userRepo, cfg)
@@ -47,15 +44,12 @@ func main() {
 
 	handler := &APIHandler{authService: authService, noteService: noteService}
 
-	// Configurar router Chi
 	r := chi.NewRouter()
-	r.Use(middleware.Logger) // Log de peticiones HTTP
+	r.Use(middleware.Logger)
 
-	// Rutas públicas
 	r.Post("/register", handler.Register)
 	r.Post("/login", handler.Login)
 
-	// Rutas protegidas con JWT
 	r.Group(func(r chi.Router) {
 		r.Use(handler.JWTAuthMiddleware)
 		r.Post("/notes", handler.CreateNote)
@@ -68,7 +62,6 @@ func main() {
 	}
 }
 
-// Register maneja el registro de usuarios
 func (h *APIHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
@@ -90,7 +83,6 @@ func (h *APIHandler) Register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// Login maneja la autenticación
 func (h *APIHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
@@ -111,7 +103,6 @@ func (h *APIHandler) Login(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"token": token})
 }
 
-// JWTAuthMiddleware verifica el token JWT
 func (h *APIHandler) JWTAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenStr := r.Header.Get("Authorization")
@@ -149,7 +140,6 @@ func (h *APIHandler) JWTAuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// CreateNote crea una nota
 func (h *APIHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Title   string `json:"title"`
@@ -171,7 +161,6 @@ func (h *APIHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(note)
 }
 
-// GetNotes lista las notas del usuario
 func (h *APIHandler) GetNotes(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(ctxUserID).(uint)
 	notes, err := h.noteService.GetNotesByUserID(userID)
