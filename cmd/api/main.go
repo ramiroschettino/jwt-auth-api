@@ -5,8 +5,8 @@ import (
 	"log"
 
 	"github.com/ramiroschettino/jwt-auth-api/internal/config"
-	"github.com/ramiroschettino/jwt-auth-api/internal/models"
-	repository "github.com/ramiroschettino/jwt-auth-api/internal/repositories"
+	"github.com/ramiroschettino/jwt-auth-api/internal/repositories"
+	"github.com/ramiroschettino/jwt-auth-api/internal/services"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -18,32 +18,32 @@ func main() {
 		log.Fatal("Error conectando a la DB: ", err)
 	}
 
-	userRepo := repository.NewUserRepository(db)
-	noteRepo := repository.NewNoteRepository(db)
+	userRepo := repositories.NewUserRepository(db)
+	noteRepo := repositories.NewNoteRepository(db)
+	authService := services.NewAuthService(userRepo, cfg)
+	noteService := services.NewNoteService(noteRepo)
 
-	user := &models.User{
-		Username: "testuser",
-		Password: "testpass",
-		Role:     "user",
+	user, err := authService.Register("testuser2", "testpass", "user")
+	if err != nil {
+		log.Fatal("Error registrando usuario: ", err)
 	}
-	if err := userRepo.CreateUser(user); err != nil {
-		log.Fatal("Error creando usuario: ", err)
-	}
-	fmt.Println("Usuario creado:", user.Username)
+	fmt.Println("Usuario registrado:", user.Username)
 
-	note := &models.Note{
-		Title:   "Mi primera nota",
-		Content: "Contenido de prueba",
-		UserID:  user.ID,
+	token, err := authService.Login("testuser2", "testpass")
+	if err != nil {
+		log.Fatal("Error en login: ", err)
 	}
-	if err := noteRepo.CreateNote(note); err != nil {
+	fmt.Println("Token JWT:", token)
+
+	note, err := noteService.CreateNote("Segunda nota", "Otro contenido", user.ID)
+	if err != nil {
 		log.Fatal("Error creando nota: ", err)
 	}
 	fmt.Println("Nota creada:", note.Title)
 
-	notes, err := noteRepo.FindNotesByUserID(user.ID)
+	notes, err := noteService.GetNotesByUserID(user.ID)
 	if err != nil {
-		log.Fatal("Error buscando notas: ", err)
+		log.Fatal("Error listando notas: ", err)
 	}
 	for _, n := range notes {
 		fmt.Printf("Nota: %s, Contenido: %s\n", n.Title, n.Content)
