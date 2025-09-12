@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// TestAuthService prueba el registro y login de usuarios
 func TestAuthService(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	assert.NoError(t, err)

@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// TestNoteService prueba la creación y consulta de notas
 func TestNoteService(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	assert.NoError(t, err)
