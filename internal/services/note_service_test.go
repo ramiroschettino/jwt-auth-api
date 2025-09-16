@@ -3,11 +3,11 @@ package services
 import (
 	"testing"
 
+	"github.com/glebarez/sqlite"
 	"github.com/ramiroschettino/jwt-auth-api/internal/models"
 	"github.com/ramiroschettino/jwt-auth-api/internal/repositories"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -42,7 +42,6 @@ func TestNoteService(t *testing.T) {
 	suite.Run(t, new(NoteServiceTestSuite))
 }
 
-// TestNoteService prueba la creación y consulta de notas
 func (s *NoteServiceTestSuite) TestNoteService() {
 	t := s.T()
 

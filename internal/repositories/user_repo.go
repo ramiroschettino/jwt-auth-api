@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"time"
+
 	"github.com/ramiroschettino/jwt-auth-api/internal/models"
 	"gorm.io/gorm"
 )
@@ -24,4 +26,41 @@ func (r *UserRepository) FindUserByUsername(username string) (*models.User, erro
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *UserRepository) IsUsernameTaken(username string) bool {
+	var count int64
+	r.db.Model(&models.User{}).Where("username = ?", username).Count(&count)
+	return count > 0
+}
+
+func (r *UserRepository) InvalidateToken(token string, expiresAt time.Time) error {
+	return r.db.Create(&models.InvalidToken{
+		Token:     token,
+		ExpiresAt: expiresAt,
+	}).Error
+}
+
+func (r *UserRepository) IsTokenInvalid(token string) bool {
+	var count int64
+	r.db.Model(&models.InvalidToken{}).
+		Where("token = ? AND expires_at > ?", token, time.Now()).
+		Count(&count)
+	return count > 0
+}
+
+func (r *UserRepository) CleanupExpiredTokens() error {
+	return r.db.Where("expires_at < ?", time.Now()).
+		Delete(&models.InvalidToken{}).Error
+}
+
+func (r *UserRepository) InvalidateUserTokens(userID uint) error {
+	var tokens []models.InvalidToken
+	if err := r.db.Where("user_id = ?", userID).Find(&tokens).Error; err != nil {
+		return err
+	}
+
+	return r.db.Model(&models.InvalidToken{}).
+		Where("user_id = ?", userID).
+		Update("expires_at", time.Now()).Error
 }

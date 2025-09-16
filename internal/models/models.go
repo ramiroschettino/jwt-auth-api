@@ -1,6 +1,8 @@
 package models
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -22,4 +24,11 @@ type TokenClaims struct {
 	UserID   uint   `json:"user_id"`
 	Username string `json:"username"`
 	Role     string `json:"role"`
+}
+
+type InvalidToken struct {
+	gorm.Model
+	Token     string    `gorm:"type:text;not null"`
+	ExpiresAt time.Time `gorm:"not null;index"`
+	UserID    uint      `gorm:"not null;index"`
 }

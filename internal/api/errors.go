@@ -24,11 +24,14 @@ func WriteError(w http.ResponseWriter, err *APIError) {
 }
 
 var (
-	ErrInvalidRequest  = NewAPIError(http.StatusBadRequest, "Invalid request")
-	ErrUnauthorized    = NewAPIError(http.StatusUnauthorized, "Unauthorized")
-	ErrInvalidToken    = NewAPIError(http.StatusUnauthorized, "Invalid token")
-	ErrMissingToken    = NewAPIError(http.StatusUnauthorized, "Missing token")
-	ErrInternalServer  = NewAPIError(http.StatusInternalServerError, "Internal server error")
-	ErrUserNotFound    = NewAPIError(http.StatusNotFound, "User not found")
-	ErrInvalidPassword = NewAPIError(http.StatusUnauthorized, "Invalid password")
+	ErrInvalidRequest    = NewAPIError(http.StatusBadRequest, "Invalid request")
+	ErrUnauthorized      = NewAPIError(http.StatusUnauthorized, "Unauthorized")
+	ErrInvalidToken      = NewAPIError(http.StatusUnauthorized, "Invalid token")
+	ErrMissingToken      = NewAPIError(http.StatusUnauthorized, "Missing token")
+	ErrInternalServer    = NewAPIError(http.StatusInternalServerError, "Internal server error")
+	ErrUserNotFound      = NewAPIError(http.StatusNotFound, "User not found")
+	ErrInvalidPassword   = NewAPIError(http.StatusUnauthorized, "Invalid password")
+	ErrDuplicateUsername = NewAPIError(http.StatusConflict, "Username already exists")
+	ErrInvalidRole       = NewAPIError(http.StatusBadRequest, "Invalid role")
+	ErrTokenExpired      = NewAPIError(http.StatusUnauthorized, "Token expired")
 )

@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/glebarez/sqlite"
 	"github.com/ramiroschettino/jwt-auth-api/internal/config"
 	"github.com/ramiroschettino/jwt-auth-api/internal/models"
 	"github.com/ramiroschettino/jwt-auth-api/internal/repositories"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -40,7 +40,6 @@ func TestAuthService(t *testing.T) {
 	suite.Run(t, new(AuthServiceTestSuite))
 }
 
-// TestAuthService prueba el registro y login de usuarios
 func (s *AuthServiceTestSuite) TestAuthService() {
 	t := s.T()
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/ramiroschettino/jwt-auth-api/internal/api"
 	"github.com/ramiroschettino/jwt-auth-api/internal/config"
+	"github.com/ramiroschettino/jwt-auth-api/internal/models"
 	"github.com/ramiroschettino/jwt-auth-api/internal/repositories"
 	"github.com/ramiroschettino/jwt-auth-api/internal/services"
 	"gorm.io/driver/postgres"
@@ -16,6 +17,10 @@ func main() {
 	db, err := gorm.Open(postgres.Open(cfg.DBDSN), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Error conectando a la DB: ", err)
+	}
+
+	if err := db.AutoMigrate(&models.User{}, &models.Note{}, &models.InvalidToken{}); err != nil {
+		log.Fatal("Error en la migración de la DB: ", err)
 	}
 
 	userRepo := repositories.NewUserRepository(db)

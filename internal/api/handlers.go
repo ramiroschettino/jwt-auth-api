@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/ramiroschettino/jwt-auth-api/internal/services"
 )
 
@@ -36,9 +35,20 @@ func (h *APIHandler) Register(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, ErrInvalidRequest)
 		return
 	}
+
+	if req.Role != "user" && req.Role != "admin" {
+		WriteError(w, ErrInvalidRole)
+		return
+	}
+
 	user, err := h.AuthService.Register(req.Username, req.Password, req.Role)
 	if err != nil {
-		WriteError(w, ErrInternalServer)
+		switch err {
+		case services.ErrUserExists:
+			WriteError(w, ErrDuplicateUsername)
+		default:
+			WriteError(w, ErrInternalServer)
+		}
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -67,31 +77,20 @@ func (h *APIHandler) JWTAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenStr := r.Header.Get("Authorization")
 		if tokenStr == "" {
-			http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
+			WriteError(w, ErrMissingToken)
 			return
 		}
 		if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
 			tokenStr = tokenStr[7:]
 		}
-		claims := jwt.MapClaims{}
-		token, err := jwt.NewParser().ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, http.ErrAbortHandler
-			}
-			return []byte(h.AuthService.Cfg.JWTSecret), nil
-		})
-		if err != nil || !token.Valid {
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
+
+		userID, err := h.AuthService.ValidateToken(tokenStr)
+		if err != nil {
+			WriteError(w, ErrInvalidToken)
 			return
 		}
-		claimsMap, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			http.Error(w, "Invalid claims", http.StatusUnauthorized)
-			return
-		}
-		ctx := context.WithValue(r.Context(), ctxUserID, uint(claimsMap["user_id"].(float64)))
-		ctx = context.WithValue(ctx, ctxUsername, claimsMap["username"].(string))
-		ctx = context.WithValue(ctx, ctxRole, claimsMap["role"].(string))
+
+		ctx := context.WithValue(r.Context(), ctxUserID, userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -124,4 +123,19 @@ func (h *APIHandler) GetNotes(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(notes)
+}
+
+func (h *APIHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	tokenStr := r.Header.Get("Authorization")
+	if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
+		tokenStr = tokenStr[7:]
+	}
+
+	if err := h.AuthService.Logout(tokenStr); err != nil {
+		WriteError(w, ErrInternalServer)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Successfully logged out"})
 }
