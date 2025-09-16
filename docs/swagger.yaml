@@ -1,0 +1,80 @@
+openapi: 3.0.0
+info:
+  title: JWT Auth API
+  version: 1.0.0
+  description: API de autenticación y gestión de notas con JWT
+paths:
+  /register:
+    post:
+      summary: Registrar nuevo usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                role:
+                  type: string
+      responses:
+        '201':
+          description: Usuario creado
+  /login:
+    post:
+      summary: Iniciar sesión
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+  /notes:
+    post:
+      summary: Crear nota
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+      responses:
+        '201':
+          description: Nota creada
+    get:
+      summary: Obtener notas del usuario
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de notas
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer

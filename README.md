@@ -140,3 +140,20 @@ jwt-auth-api/
 │   ├── models/             # Modelos de datos (User, Note)
 │   ├── repositories/       # Operaciones con la base de datos
 │   ├── services/           # Lógica de negocio (autenticación, notas)
+│   └── handlers/           # Manejadores de HTTP (rutas, controladores)
+├── docs/
+│   └── swagger.yaml        # Documentación OpenAPI/Swagger
+└── tests/                  # Pruebas unitarias y de integración
+
+## Documentación API
+La documentación OpenAPI/Swagger está disponible en `/docs/swagger.yaml`
+
+## Mejores Prácticas Implementadas
+
+- Manejo centralizado de errores
+- Documentación OpenAPI
+- Tests unitarios
+- Logs estructurados
+- JWT para autenticación
+- Clean Architecture
+- Docker para la base de datos

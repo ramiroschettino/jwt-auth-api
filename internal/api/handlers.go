@@ -33,12 +33,12 @@ func (h *APIHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Role     string `json:"role"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		WriteError(w, ErrInvalidRequest)
 		return
 	}
 	user, err := h.AuthService.Register(req.Username, req.Password, req.Role)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		WriteError(w, ErrInternalServer)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -51,12 +51,12 @@ func (h *APIHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		WriteError(w, ErrInvalidRequest)
 		return
 	}
 	token, err := h.AuthService.Login(req.Username, req.Password)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		WriteError(w, ErrUnauthorized)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
