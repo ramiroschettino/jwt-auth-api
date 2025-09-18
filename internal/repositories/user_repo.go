@@ -55,12 +55,14 @@ func (r *UserRepository) CleanupExpiredTokens() error {
 }
 
 func (r *UserRepository) InvalidateUserTokens(userID uint) error {
-	var tokens []models.InvalidToken
-	if err := r.db.Where("user_id = ?", userID).Find(&tokens).Error; err != nil {
+	if err := r.CleanupExpiredTokens(); err != nil {
 		return err
 	}
 
 	return r.db.Model(&models.InvalidToken{}).
-		Where("user_id = ?", userID).
-		Update("expires_at", time.Now()).Error
+		Where("user_id = ? AND expires_at > ?", userID, time.Now()).
+		Updates(map[string]interface{}{
+			"expires_at": time.Now(),
+			"reason":     "user_logged_in",
+		}).Error
 }

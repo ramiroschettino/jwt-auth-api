@@ -13,12 +13,19 @@ import (
 )
 
 type AuthService struct {
-	userRepo *repositories.UserRepository
-	Cfg      *config.Config
+	userRepo    *repositories.UserRepository
+	sessionRepo *repositories.SessionRepository
+	Cfg         *config.Config
 }
 
-func NewAuthService(userRepo *repositories.UserRepository, cfg *config.Config) *AuthService {
-	return &AuthService{userRepo: userRepo, Cfg: cfg}
+const maxSessionsPerUser = 5
+
+func NewAuthService(userRepo *repositories.UserRepository, sessionRepo *repositories.SessionRepository, cfg *config.Config) *AuthService {
+	return &AuthService{
+		userRepo:    userRepo,
+		sessionRepo: sessionRepo,
+		Cfg:         cfg,
+	}
 }
 
 // Error variables are now centralized in the errors package
@@ -45,7 +52,7 @@ func (s *AuthService) Register(username, password, role string) (*models.User, e
 	return user, nil
 }
 
-func (s *AuthService) Login(username, password string) (string, error) {
+func (s *AuthService) Login(username, password string, userAgent, ip string) (string, error) {
 	user, err := s.userRepo.FindUserByUsername(username)
 	if err != nil {
 		return "", apperrors.ErrUserNotFound
@@ -55,21 +62,30 @@ func (s *AuthService) Login(username, password string) (string, error) {
 		return "", apperrors.ErrInvalidPassword
 	}
 
-	// Invalidar tokens anteriores del usuario
-	if err := s.userRepo.InvalidateUserTokens(user.ID); err != nil {
-		return "", err
+	// Invalida todos los tokens anteriores y desactiva sesiones previas
+	if err := s.sessionRepo.DeactivateUserSessionsAndBlacklist(user.ID, s.userRepo); err != nil {
+		return "", fmt.Errorf("error al invalidar sesiones anteriores: %w", err)
 	}
 
 	// Generar nuevo token
 	tokenString, err := s.generateToken(user)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error al generar token: %w", err)
 	}
 
-	// Registrar el nuevo token
-	expiresAt := time.Now().Add(s.Cfg.JWTExpiration)
-	if err := s.userRepo.InvalidateToken(tokenString, expiresAt); err != nil {
-		return "", err
+	// Crear nueva sesión
+	session := &models.Session{
+		UserID:       user.ID,
+		Token:        tokenString,
+		LastActivity: time.Now(),
+		ExpiresAt:    time.Now().Add(s.Cfg.JWTExpiration),
+		UserAgent:    userAgent,
+		IP:           ip,
+		IsActive:     true,
+	}
+
+	if err := s.sessionRepo.CreateSession(session); err != nil {
+		return "", fmt.Errorf("error al crear sesión: %w", err)
 	}
 
 	return tokenString, nil
@@ -87,6 +103,12 @@ func (s *AuthService) ValidateToken(tokenStr string) (uint, error) {
 		return 0, apperrors.ErrTokenBlacklisted
 	}
 
+	// Verificar si la sesión está activa
+	session, err := s.sessionRepo.GetActiveSessionByToken(tokenStr)
+	if err != nil || session == nil || session.IsExpired() || !session.IsActive {
+		return 0, apperrors.ErrTokenInvalid
+	}
+
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("método de firma inesperado: %v", token.Header["alg"])
@@ -95,7 +117,6 @@ func (s *AuthService) ValidateToken(tokenStr string) (uint, error) {
 	})
 
 	if err != nil {
-		// Wrap JWT library errors with our domain errors
 		return 0, apperrors.WrapError(err, "failed to parse token")
 	}
 
@@ -110,6 +131,9 @@ func (s *AuthService) ValidateToken(tokenStr string) (uint, error) {
 		if !ok {
 			return 0, apperrors.WrapError(apperrors.ErrTokenInvalid, "missing user_id claim")
 		}
+
+		// Actualizar la última actividad de la sesión
+		_ = s.sessionRepo.UpdateLastActivity(tokenStr)
 
 		return uint(userID), nil
 	}

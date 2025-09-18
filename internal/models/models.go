@@ -28,7 +28,8 @@ type TokenClaims struct {
 
 type InvalidToken struct {
 	gorm.Model
-	Token     string    `gorm:"type:text;not null"`
+	Token     string    `gorm:"type:text;not null;uniqueIndex"`
 	ExpiresAt time.Time `gorm:"not null;index"`
 	UserID    uint      `gorm:"not null;index"`
+	Reason    string    `gorm:"not null"`
 }

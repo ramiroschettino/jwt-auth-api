@@ -19,13 +19,14 @@ func main() {
 		log.Fatal("Error conectando a la DB: ", err)
 	}
 
-	if err := db.AutoMigrate(&models.User{}, &models.Note{}, &models.InvalidToken{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Note{}, &models.InvalidToken{}, &models.Session{}); err != nil {
 		log.Fatal("Error en la migración de la DB: ", err)
 	}
 
 	userRepo := repositories.NewUserRepository(db)
 	noteRepo := repositories.NewNoteRepository(db)
-	authService := services.NewAuthService(userRepo, cfg)
+	sessionRepo := repositories.NewSessionRepository(db)
+	authService := services.NewAuthService(userRepo, sessionRepo, cfg)
 	noteService := services.NewNoteService(noteRepo)
 
 	handler := api.NewAPIHandler(authService, noteService)

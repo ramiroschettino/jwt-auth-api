@@ -6,6 +6,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/ramiroschettino/jwt-auth-api/internal/config"
+	apperrors "github.com/ramiroschettino/jwt-auth-api/internal/errors"
 	"github.com/ramiroschettino/jwt-auth-api/internal/models"
 	"github.com/ramiroschettino/jwt-auth-api/internal/repositories"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,7 @@ func (s *AuthServiceTestSuite) SetupTest() {
 	s.db, err = gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	s.NoError(err)
 
-	err = s.db.AutoMigrate(&models.User{}, &models.Note{})
+	err = s.db.AutoMigrate(&models.User{}, &models.Note{}, &models.Session{})
 	s.NoError(err)
 
 	cfg := &config.Config{
@@ -33,7 +34,8 @@ func (s *AuthServiceTestSuite) SetupTest() {
 	}
 
 	userRepo := repositories.NewUserRepository(s.db)
-	s.authService = NewAuthService(userRepo, cfg)
+	sessionRepo := repositories.NewSessionRepository(s.db)
+	s.authService = NewAuthService(userRepo, sessionRepo, cfg)
 }
 
 func TestAuthService(t *testing.T) {
@@ -61,16 +63,32 @@ func (s *AuthServiceTestSuite) TestAuthService() {
 		_, err := s.authService.Register("testuser2", "testpass", "user")
 		assert.NoError(t, err)
 
-		token, err := s.authService.Login("testuser2", "testpass")
+		// Test successful login
+		token, err := s.authService.Login("testuser2", "testpass", "test-agent", "127.0.0.1")
 		assert.NoError(t, err)
 		assert.NotEmpty(t, token)
 
-		_, err = s.authService.Login("testuser2", "wrongpass")
+		// Test wrong password
+		_, err = s.authService.Login("testuser2", "wrongpass", "test-agent", "127.0.0.1")
 		assert.Error(t, err)
-		assert.Equal(t, "contraseña incorrecta", err.Error())
+		assert.Equal(t, apperrors.ErrInvalidPassword, err)
 
-		_, err = s.authService.Login("nonexistent", "testpass")
+		// Test nonexistent user
+		_, err = s.authService.Login("nonexistent", "testpass", "test-agent", "127.0.0.1")
 		assert.Error(t, err)
-		assert.Equal(t, "usuario no encontrado", err.Error())
+		assert.Equal(t, apperrors.ErrUserNotFound, err)
+
+		// Test multiple sessions
+		for i := 0; i < maxSessionsPerUser+1; i++ {
+			token, err = s.authService.Login("testuser2", "testpass", "test-agent", "127.0.0.1")
+			assert.NoError(t, err)
+			assert.NotEmpty(t, token)
+		}
+
+		// Verify that only maxSessionsPerUser sessions exist
+		var count int64
+		result := s.db.Model(&models.Session{}).Where("user_id = ? AND is_active = ?", 1, true).Count(&count)
+		assert.NoError(t, result.Error)
+		assert.Equal(t, int64(maxSessionsPerUser), count)
 	})
 }

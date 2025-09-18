@@ -64,9 +64,28 @@ func (h *APIHandler) Login(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, ErrInvalidRequest)
 		return
 	}
-	token, err := h.AuthService.Login(req.Username, req.Password)
+
+	if req.Username == "" || req.Password == "" {
+		WriteError(w, NewAPIError(http.StatusBadRequest, "username and password are required"))
+		return
+	}
+
+	userAgent := r.Header.Get("User-Agent")
+	ip := r.RemoteAddr
+	if fwdIP := r.Header.Get("X-Forwarded-For"); fwdIP != "" {
+		ip = fwdIP
+	}
+
+	token, err := h.AuthService.Login(req.Username, req.Password, userAgent, ip)
 	if err != nil {
-		WriteError(w, MapError(err))
+		switch err {
+		case apperrors.ErrUserNotFound:
+			WriteError(w, NewAPIError(http.StatusNotFound, "user not found"))
+		case apperrors.ErrInvalidPassword:
+			WriteError(w, NewAPIError(http.StatusUnauthorized, "invalid password"))
+		default:
+			WriteError(w, ErrInternalServer)
+		}
 		return
 	}
 	w.WriteHeader(http.StatusOK)
