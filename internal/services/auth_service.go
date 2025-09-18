@@ -12,12 +12,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// AuthService gestiona la autenticación y sesiones de usuarios
 type AuthService struct {
 	userRepo    *repositories.UserRepository
 	sessionRepo *repositories.SessionRepository
 	Cfg         *config.Config
 }
 
+// Límite de sesiones simultáneas por usuario
 const maxSessionsPerUser = 5
 
 func NewAuthService(userRepo *repositories.UserRepository, sessionRepo *repositories.SessionRepository, cfg *config.Config) *AuthService {
@@ -27,8 +29,6 @@ func NewAuthService(userRepo *repositories.UserRepository, sessionRepo *reposito
 		Cfg:         cfg,
 	}
 }
-
-// Error variables are now centralized in the errors package
 
 func (s *AuthService) Register(username, password, role string) (*models.User, error) {
 	if s.userRepo.IsUsernameTaken(username) {
@@ -114,16 +114,16 @@ func (s *AuthService) Logout(tokenStr string) error {
 	return nil
 }
 
-func (s *AuthService) ValidateToken(tokenStr string) (uint, error) {
+func (s *AuthService) ValidateToken(tokenStr string) (uint, string, error) {
 	// Verificar si el token está en la lista negra
 	if s.userRepo.IsTokenInvalid(tokenStr) {
-		return 0, apperrors.ErrTokenBlacklisted
+		return 0, "", apperrors.ErrTokenBlacklisted
 	}
 
 	// Verificar si la sesión está activa
 	session, err := s.sessionRepo.GetActiveSessionByToken(tokenStr)
 	if err != nil || session == nil || session.IsExpired() || !session.IsActive {
-		return 0, apperrors.ErrTokenInvalid
+		return 0, "", apperrors.ErrTokenInvalid
 	}
 
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
@@ -134,28 +134,33 @@ func (s *AuthService) ValidateToken(tokenStr string) (uint, error) {
 	})
 
 	if err != nil {
-		return 0, apperrors.WrapError(err, "failed to parse token")
+		return 0, "", apperrors.WrapError(err, "failed to parse token")
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		if exp, ok := claims["exp"].(float64); ok {
 			if float64(time.Now().Unix()) > exp {
-				return 0, apperrors.ErrTokenExpired
+				return 0, "", apperrors.ErrTokenExpired
 			}
 		}
 
 		userID, ok := claims["user_id"].(float64)
 		if !ok {
-			return 0, apperrors.WrapError(apperrors.ErrTokenInvalid, "missing user_id claim")
+			return 0, "", apperrors.WrapError(apperrors.ErrTokenInvalid, "missing user_id claim")
+		}
+
+		role, ok := claims["role"].(string)
+		if !ok {
+			return 0, "", apperrors.WrapError(apperrors.ErrTokenInvalid, "missing role claim")
 		}
 
 		// Actualizar la última actividad de la sesión
 		_ = s.sessionRepo.UpdateLastActivity(tokenStr)
 
-		return uint(userID), nil
+		return uint(userID), role, nil
 	}
 
-	return 0, apperrors.ErrTokenInvalid
+	return 0, "", apperrors.ErrTokenInvalid
 }
 
 func (s *AuthService) generateToken(user *models.User) (string, error) {

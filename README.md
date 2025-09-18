@@ -1,102 +1,169 @@
-API de Autenticación JWT
-  Una API RESTful desarrollada con Go, Chi, GORM y PostgreSQL para autenticación de usuarios (usando JWT) y gestión de notas privadas.
-Características
+# JWT Authentication API
 
-Registro y login de usuarios con autenticación basada en JWT
-Creación y listado de notas privadas por usuario
-Hash seguro de contraseñas con bcrypt
-Base de datos PostgreSQL gestionada con Docker
-Arquitectura limpia (modelos, repositorios, servicios, manejadores)
+Una API REST moderna para gestión de autenticación y notas personales
 
-Requisitos
+## 🚀 Características
 
-Go (versión 1.21 o superior)
-Docker Desktop para Windows
-Postman para probar los endpoints
+- **Autenticación Segura**
+  - Sistema completo de JWT con refresh tokens
+  - Gestión de sesiones múltiples
+  - Hash seguro de contraseñas con bcrypt
+  - Control de roles y permisos
 
-Configuración
+- **Gestión de Notas**
+  - CRUD completo de notas personales
+  - Aislamiento de datos por usuario
+  - Validación de entradas
 
-Clonar el repositorio:
-git clone https://github.com/ramiroschettino/jwt-auth-api
-cd jwt-auth-api
+- **Arquitectura Moderna**
+  - Clean Architecture
+  - Manejo centralizado de errores
+  - Tests unitarios extensivos
+  - Documentación Swagger
 
+## 🛠️ Tecnologías
 
-Crear el archivo .env:En la carpeta raíz (C:\proyectos\jwt-auth-api), crea un archivo .env con:
-DB_DSN=postgres://user:pass@localhost:5432/jwtdb?sslmode=disable
-JWT_SECRET=9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1a0f9e
-JWT_EXPIRATION=15m
-REFRESH_EXPIRATION=24h
-POSTGRES_USER=user
-POSTGRES_PASSWORD=pass
-POSTGRES_DB=jwtdb
+- **Go 1.21+** - Backend robusto y eficiente
+- **Chi Router** - Enrutamiento HTTP flexible
+- **GORM** - ORM potente y developer-friendly
+- **PostgreSQL** - Base de datos relacional
+- **Docker** - Containerización y despliegue simplificado
+- **JWT** - Autenticación stateless
+- **Swagger** - Documentación de API
 
+## 📋 Prerrequisitos
 
-Iniciar PostgreSQL con Docker:Abre un símbolo del sistema como administrador y ejecuta:
-docker-compose up -d
+- Go 1.21 o superior
+- Docker y Docker Compose
+- PostgreSQL (incluido en Docker Compose)
 
-Verifica que el contenedor esté corriendo:
-docker ps
+## 🚦 Inicio Rápido
 
-
-Instalar dependencias de Go:
-go mod tidy
-
-
-Ejecutar la API:
-go run cmd\api\main.go
-
-El servidor estará disponible en http://localhost:8080.
+1. **Clonar el repositorio**
+   ```bash
+   git clone https://github.com/ramiroschettino/jwt-auth-api
+   cd jwt-auth-api
+   ```
 
 
-Endpoints de la API
-Endpoints públicos
+2. **Configurar variables de entorno**
+   ```bash
+   # Crear archivo .env en la raíz del proyecto
+   cp .env.example .env
+   ```
+   Ajusta las variables según tu entorno:
+   ```env
+   DB_DSN=postgres://user:pass@localhost:5432/jwtdb?sslmode=disable
+   JWT_SECRET=tu_secret_key_segura
+   JWT_EXPIRATION=15m
+   REFRESH_EXPIRATION=24h
+   POSTGRES_USER=user
+   POSTGRES_PASSWORD=pass
+   POSTGRES_DB=jwtdb
+   ```
 
-POST /register
-Descripción: Registra un nuevo usuario.
-Body (JSON):{
-    "username": "testuser",
-    "password": "testpass",
+
+3. **Iniciar servicios con Docker**
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Instalar dependencias**
+   ```bash
+   go mod tidy
+   ```
+
+5. **Ejecutar la API**
+   ```bash
+   go run cmd/api/main.go
+   ```
+
+El servidor estará disponible en `http://localhost:8080`
+
+## 📡 Endpoints
+
+### Públicos
+
+#### `POST /register`
+Registro de nuevos usuarios
+```json
+{
+    "username": "usuario",
+    "password": "contraseña",
     "role": "user"
 }
+```
+Respuesta: `201 Created` con datos del usuario
 
 
-Respuesta: Código 201 Created con datos del usuario (ID, username, role, timestamps).
-
-
-POST /login
-Descripción: Autentica un usuario y devuelve un token JWT.
-Body (JSON):{
-    "username": "testuser",
-    "password": "testpass"
+#### `POST /login`
+Autenticación de usuarios
+```json
+{
+    "username": "usuario",
+    "password": "contraseña"
 }
+```
+Respuesta: `200 OK` con token JWT
 
+### Protegidos
+Requieren header: `Authorization: Bearer <token>`
 
-Respuesta: Código 200 OK con {"token": "jwt_token"}.
+> **Nota sobre roles**: 
+> - Rol `admin`: Puede crear y consultar notas
+> - Rol `user`: Solo puede consultar notas
 
-
-
-Endpoints protegidos (requieren Authorization: Bearer <token>)
-
-POST /notes
-Descripción: Crea una nota para el usuario autenticado.
-Headers: Authorization: Bearer <token>
-Body (JSON):{
+#### `POST /notes`
+Crear nota personal (solo admin)
+```json
+{
     "title": "Mi Nota",
-    "content": "Contenido"
+    "content": "Contenido de la nota"
 }
+```
+Respuesta: 
+- `201 Created` con datos de la nota (para admin)
+- `403 Forbidden` si el rol no es admin
 
+#### `GET /notes`
+Listar notas del usuario autenticado (disponible para todos los roles)
+Respuesta: `200 OK` con array de notas
 
-Respuesta: Código 201 Created con datos de la nota.
+## 🧪 Tests
 
+Ejecutar suite completa de tests:
+```bash
+go test ./...
+```
 
-GET /notes
-Descripción: Lista las notas del usuario autenticado.
-Headers: Authorization: Bearer <token>
-Respuesta: Código 200 OK con un array de notas.
+## 📚 Documentación
 
+La documentación completa de la API está disponible en:
+- Swagger UI: `http://localhost:8080/swagger`
+- Docs: `docs/swagger.yaml`
 
+## 🔒 Seguridad
 
-Probar con Postman
+- Todas las contraseñas se hashean con bcrypt
+- Tokens JWT con expiración configurable
+- Control de sesiones simultáneas
+- Validación de entradas en todos los endpoints
+
+## 🤝 Contribuir
+
+1. Fork el proyecto
+2. Crea tu Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push al Branch (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.
+
+## ✨ Autor
+
+Ramiro Schettino - [GitHub](https://github.com/ramiroschettino)
 
 Registrar un usuario:
 Método: POST

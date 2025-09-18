@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// User almacena la información básica de un usuario del sistema
 type User struct {
 	gorm.Model
 	Username string `gorm:"unique;not null"`
@@ -13,6 +14,7 @@ type User struct {
 	Role     string `gorm:"not null"`
 }
 
+// Note representa una nota personal del usuario
 type Note struct {
 	gorm.Model
 	Title   string `gorm:"not null"`

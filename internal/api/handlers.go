@@ -103,13 +103,14 @@ func (h *APIHandler) JWTAuthMiddleware(next http.Handler) http.Handler {
 			tokenStr = tokenStr[7:]
 		}
 
-		userID, err := h.AuthService.ValidateToken(tokenStr)
+		userID, role, err := h.AuthService.ValidateToken(tokenStr)
 		if err != nil {
 			WriteError(w, MapError(err))
 			return
 		}
 
 		ctx := context.WithValue(r.Context(), ctxUserID, userID)
+		ctx = context.WithValue(ctx, ctxRole, role)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -123,6 +124,14 @@ func (h *APIHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, ErrInvalidRequest)
 		return
 	}
+
+	// Verificar si el usuario tiene rol de admin
+	role := r.Context().Value(ctxRole).(string)
+	if role != "admin" {
+		WriteError(w, NewAPIError(http.StatusForbidden, "solo los administradores pueden crear notas"))
+		return
+	}
+
 	userID := r.Context().Value(ctxUserID).(uint)
 	note, err := h.NoteService.CreateNote(req.Title, req.Content, userID)
 	if err != nil {

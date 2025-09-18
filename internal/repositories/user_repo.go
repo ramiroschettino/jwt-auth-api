@@ -7,10 +7,13 @@ import (
 	"gorm.io/gorm"
 )
 
+// UserRepository maneja el acceso a datos de los usuarios
+// Implementa operaciones CRUD y búsquedas específicas
 type UserRepository struct {
 	db *gorm.DB
 }
 
+// NewUserRepository crea una nueva instancia del repositorio de usuarios
 func NewUserRepository(db *gorm.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
