@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	apperrors "github.com/ramiroschettino/jwt-auth-api/internal/errors"
 	"github.com/ramiroschettino/jwt-auth-api/internal/services"
 )
 
@@ -43,11 +44,10 @@ func (h *APIHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.AuthService.Register(req.Username, req.Password, req.Role)
 	if err != nil {
-		switch err {
-		case services.ErrUserExists:
+		if err == apperrors.ErrUserExists {
 			WriteError(w, ErrDuplicateUsername)
-		default:
-			WriteError(w, ErrInternalServer)
+		} else {
+			WriteError(w, MapError(err))
 		}
 		return
 	}
@@ -66,7 +66,7 @@ func (h *APIHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	token, err := h.AuthService.Login(req.Username, req.Password)
 	if err != nil {
-		WriteError(w, ErrUnauthorized)
+		WriteError(w, MapError(err))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -77,7 +77,7 @@ func (h *APIHandler) JWTAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenStr := r.Header.Get("Authorization")
 		if tokenStr == "" {
-			WriteError(w, ErrMissingToken)
+			WriteError(w, MapError(apperrors.ErrTokenMissing))
 			return
 		}
 		if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
@@ -86,7 +86,7 @@ func (h *APIHandler) JWTAuthMiddleware(next http.Handler) http.Handler {
 
 		userID, err := h.AuthService.ValidateToken(tokenStr)
 		if err != nil {
-			WriteError(w, ErrInvalidToken)
+			WriteError(w, MapError(err))
 			return
 		}
 
@@ -101,13 +101,13 @@ func (h *APIHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
 		Content string `json:"content"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		WriteError(w, ErrInvalidRequest)
 		return
 	}
 	userID := r.Context().Value(ctxUserID).(uint)
 	note, err := h.NoteService.CreateNote(req.Title, req.Content, userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		WriteError(w, MapError(err))
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -118,7 +118,7 @@ func (h *APIHandler) GetNotes(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(ctxUserID).(uint)
 	notes, err := h.NoteService.GetNotesByUserID(userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		WriteError(w, MapError(err))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -132,7 +132,7 @@ func (h *APIHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.AuthService.Logout(tokenStr); err != nil {
-		WriteError(w, ErrInternalServer)
+		WriteError(w, MapError(err))
 		return
 	}
 

@@ -1,12 +1,12 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/ramiroschettino/jwt-auth-api/internal/config"
+	apperrors "github.com/ramiroschettino/jwt-auth-api/internal/errors"
 	"github.com/ramiroschettino/jwt-auth-api/internal/models"
 	"github.com/ramiroschettino/jwt-auth-api/internal/repositories"
 	"golang.org/x/crypto/bcrypt"
@@ -21,22 +21,16 @@ func NewAuthService(userRepo *repositories.UserRepository, cfg *config.Config) *
 	return &AuthService{userRepo: userRepo, Cfg: cfg}
 }
 
-var (
-	ErrUserExists       = errors.New("username already exists")
-	ErrInvalidUser      = errors.New("invalid username or password")
-	ErrTokenInvalid     = errors.New("token is invalid")
-	ErrTokenExpired     = errors.New("token has expired")
-	ErrTokenBlacklisted = errors.New("token has been invalidated")
-)
+// Error variables are now centralized in the errors package
 
 func (s *AuthService) Register(username, password, role string) (*models.User, error) {
 	if s.userRepo.IsUsernameTaken(username) {
-		return nil, ErrUserExists
+		return nil, apperrors.ErrUserExists
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.WrapError(err, "failed to hash password")
 	}
 
 	user := &models.User{
@@ -46,7 +40,7 @@ func (s *AuthService) Register(username, password, role string) (*models.User, e
 	}
 
 	if err := s.userRepo.CreateUser(user); err != nil {
-		return nil, err
+		return nil, apperrors.WrapError(err, "failed to create user")
 	}
 	return user, nil
 }
@@ -54,11 +48,11 @@ func (s *AuthService) Register(username, password, role string) (*models.User, e
 func (s *AuthService) Login(username, password string) (string, error) {
 	user, err := s.userRepo.FindUserByUsername(username)
 	if err != nil {
-		return "", ErrInvalidUser
+		return "", apperrors.ErrUserNotFound
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-		return "", ErrInvalidUser
+		return "", apperrors.ErrInvalidPassword
 	}
 
 	// Invalidar tokens anteriores del usuario
@@ -90,7 +84,7 @@ func (s *AuthService) Logout(tokenStr string) error {
 func (s *AuthService) ValidateToken(tokenStr string) (uint, error) {
 	// Verificar si el token está en la lista negra
 	if s.userRepo.IsTokenInvalid(tokenStr) {
-		return 0, ErrTokenBlacklisted
+		return 0, apperrors.ErrTokenBlacklisted
 	}
 
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
@@ -101,23 +95,26 @@ func (s *AuthService) ValidateToken(tokenStr string) (uint, error) {
 	})
 
 	if err != nil {
-		return 0, err
+		// Wrap JWT library errors with our domain errors
+		return 0, apperrors.WrapError(err, "failed to parse token")
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		// Verificar expiración
 		if exp, ok := claims["exp"].(float64); ok {
 			if float64(time.Now().Unix()) > exp {
-				return 0, ErrTokenExpired
+				return 0, apperrors.ErrTokenExpired
 			}
 		}
 
-		// Convertir user_id a uint
-		userID := uint(claims["user_id"].(float64))
-		return userID, nil
+		userID, ok := claims["user_id"].(float64)
+		if !ok {
+			return 0, apperrors.WrapError(apperrors.ErrTokenInvalid, "missing user_id claim")
+		}
+
+		return uint(userID), nil
 	}
 
-	return 0, ErrTokenInvalid
+	return 0, apperrors.ErrTokenInvalid
 }
 
 func (s *AuthService) generateToken(user *models.User) (string, error) {
