@@ -92,9 +92,26 @@ func (s *AuthService) Login(username, password string, userAgent, ip string) (st
 }
 
 func (s *AuthService) Logout(tokenStr string) error {
-	// Invalidar el token actual
+	// Verificar si la sesión existe y está activa
+	session, err := s.sessionRepo.GetActiveSessionByToken(tokenStr)
+	if err != nil || session == nil {
+		// Si no existe la sesión, igual intentamos invalidar el token
+		expiresAt := time.Now().Add(s.Cfg.JWTExpiration)
+		return s.userRepo.InvalidateToken(tokenStr, expiresAt)
+	}
+
+	// Desactivar la sesión
+	if err := s.sessionRepo.DeactivateSession(tokenStr); err != nil {
+		return fmt.Errorf("error al desactivar la sesión: %w", err)
+	}
+
+	// Invalidar el token
 	expiresAt := time.Now().Add(s.Cfg.JWTExpiration)
-	return s.userRepo.InvalidateToken(tokenStr, expiresAt)
+	if err := s.userRepo.InvalidateToken(tokenStr, expiresAt); err != nil {
+		return fmt.Errorf("error al invalidar el token: %w", err)
+	}
+
+	return nil
 }
 
 func (s *AuthService) ValidateToken(tokenStr string) (uint, error) {
