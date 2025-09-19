@@ -7,7 +7,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// Endpoints
 func NewRouter(handler *APIHandler) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -23,7 +22,6 @@ func NewRouter(handler *APIHandler) *chi.Mux {
 		r.Get("/notes", handler.GetNotes)
 	})
 
-	// Swagger UI embebido en /swagger
 	r.Get("/swagger", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(`
@@ -50,7 +48,6 @@ func NewRouter(handler *APIHandler) *chi.Mux {
 							 `))
 	})
 
-	// Servir el archivo swagger.yaml en /swagger.yaml
 	r.Get("/swagger.yaml", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "docs/swagger.yaml")
 	})
