@@ -1,6 +1,8 @@
 package services
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -62,9 +64,22 @@ func (s *AuthService) Login(username, password string, userAgent, ip string) (st
 		return "", apperrors.ErrInvalidPassword
 	}
 
-	// Invalida todos los tokens anteriores y desactiva sesiones previas
-	if err := s.sessionRepo.DeactivateUserSessionsAndBlacklist(user.ID, s.userRepo); err != nil {
-		return "", fmt.Errorf("error al invalidar sesiones anteriores: %w", err)
+	// Controlar límite de sesiones activas
+	activeSessions, err := s.sessionRepo.GetActiveSessionsByUserID(user.ID)
+	if err != nil {
+		return "", fmt.Errorf("error al obtener sesiones activas: %w", err)
+	}
+	if len(activeSessions) >= maxSessionsPerUser {
+		// Desactivar la sesión más antigua
+		oldest := activeSessions[0]
+		for _, sess := range activeSessions {
+			if sess.CreatedAt.Before(oldest.CreatedAt) {
+				oldest = sess
+			}
+		}
+		if err := s.sessionRepo.DeactivateSession(oldest.Token); err != nil {
+			return "", fmt.Errorf("error al desactivar la sesión más antigua: %w", err)
+		}
 	}
 
 	// Generar nuevo token
@@ -164,12 +179,20 @@ func (s *AuthService) ValidateToken(tokenStr string) (uint, string, error) {
 }
 
 func (s *AuthService) generateToken(user *models.User) (string, error) {
+	jti := make([]byte, 16)
+	_, err := rand.Read(jti)
+	if err != nil {
+		return "", err
+	}
+	jtiStr := hex.EncodeToString(jti)
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id":  user.ID,
 		"username": user.Username,
 		"role":     user.Role,
 		"exp":      time.Now().Add(s.Cfg.JWTExpiration).Unix(),
 		"iat":      time.Now().Unix(),
+		"jti":      jtiStr,
 	})
 
 	return token.SignedString([]byte(s.Cfg.JWTSecret))
