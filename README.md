@@ -1,226 +1,170 @@
-# JWT Authentication API
 
-Una API REST moderna para gestión de autenticación y notas personales
+# JWT Auth API
 
-## 🚀 Características
+API REST para autenticación de usuarios y gestión de notas personales. Pensada para ser segura, clara y fácil de mantener.
 
-- **Autenticación Segura**
-  - Sistema completo de JWT con refresh tokens
-  - Gestión de sesiones múltiples
-  - Hash seguro de contraseñas con bcrypt
-  - Control de roles y permisos
+## Características principales
 
-- **Gestión de Notas**
-  - CRUD completo de notas personales
-  - Aislamiento de datos por usuario
-  - Validación de entradas
+- Autenticación con JWT y control de sesiones
+- Roles: `admin` y `user` (admin puede crear notas, user solo consultar)
+- CRUD de notas personales
+- Arquitectura limpia y modular
+- Manejo centralizado de errores
+- Documentación Swagger interactiva
+- Tests unitarios
 
-- **Arquitectura Moderna**
-  - Clean Architecture
-  - Manejo centralizado de errores
-  - Tests unitarios extensivos
-  - Documentación Swagger
+## Tecnologías
 
-## 🛠️ Tecnologías
+- Go 1.21+
+- Chi Router
+- GORM
+- PostgreSQL
+- Docker
+- JWT
+- Swagger
 
-- **Go 1.21+** - Backend robusto y eficiente
-- **Chi Router** - Enrutamiento HTTP flexible
-- **GORM** - ORM potente y developer-friendly
-- **PostgreSQL** - Base de datos relacional
-- **Docker** - Containerización y despliegue simplificado
-- **JWT** - Autenticación stateless
-- **Swagger** - Documentación de API
-
-## 📋 Prerrequisitos
+## Requisitos
 
 - Go 1.21 o superior
 - Docker y Docker Compose
-- PostgreSQL (incluido en Docker Compose)
 
-## 🚦 Inicio Rápido
+## Cómo empezar
 
-1. **Clonar el repositorio**
-   ```bash
+
+1. Clona el repositorio:
+   ```cmd
    git clone https://github.com/ramiroschettino/jwt-auth-api
    cd jwt-auth-api
    ```
 
-
-2. **Configurar variables de entorno**
-   ```bash
-   # Crear archivo .env en la raíz del proyecto
-   cp .env.example .env
-   ```
-   Ajusta las variables según tu entorno:
-   ```env
-   DB_DSN=postgres://user:pass@localhost:5432/jwtdb?sslmode=disable
-   JWT_SECRET=tu_secret_key_segura
-   JWT_EXPIRATION=15m
-   REFRESH_EXPIRATION=24h
-   POSTGRES_USER=user
-   POSTGRES_PASSWORD=pass
-   POSTGRES_DB=jwtdb
+2. Configura las variables de entorno:
+   ```cmd
+   copy .env.example .env
+   rem Edita .env según tu entorno
    ```
 
-
-3. **Iniciar servicios con Docker**
-   ```bash
+3. Inicia la base de datos:
+   ```cmd
    docker-compose up -d
    ```
 
-4. **Instalar dependencias**
-   ```bash
+4. Instala dependencias:
+   ```cmd
    go mod tidy
    ```
 
-5. **Ejecutar la API**
-   ```bash
-   go run cmd/api/main.go
+5. Ejecuta la API:
+   ```cmd
+   go run cmd\api\main.go
    ```
 
-El servidor estará disponible en `http://localhost:8080`
+El servidor estará disponible en [http://localhost:8080](http://localhost:8080)
 
-## 📡 Endpoints
+## Endpoints principales
 
 ### Públicos
 
-#### `POST /register`
-Registro de nuevos usuarios
-```json
+- `POST /register` — Registro de usuario
+- `POST /login` — Login y obtención de token JWT
+
+### Protegidos (requieren `Authorization: Bearer <token>`)
+
+- `POST /notes` — Crear nota (solo admin)
+- `GET /notes` — Listar notas del usuario
+- `POST /logout` — Cerrar sesión
+
+**Roles:**
+- `admin`: puede crear y consultar notas
+- `user`: solo consultar
+
+## Ejemplos de uso rápido
+
+**Registrar usuario**
+```http
+POST /register
+Content-Type: application/json
+
 {
-    "username": "usuario",
-    "password": "contraseña",
-    "role": "user"
+  "username": "testuser",
+  "password": "testpass",
+  "role": "user"
 }
 ```
-Respuesta: `201 Created` con datos del usuario
 
+**Login**
+```http
+POST /login
+Content-Type: application/json
 
-#### `POST /login`
-Autenticación de usuarios
-```json
 {
-    "username": "usuario",
-    "password": "contraseña"
+  "username": "testuser",
+  "password": "testpass"
 }
 ```
-Respuesta: `200 OK` con token JWT
 
-### Protegidos
-Requieren header: `Authorization: Bearer <token>`
+**Crear nota (admin)**
+```http
+POST /notes
+Content-Type: application/json
+Authorization: Bearer <token>
 
-> **Nota sobre roles**: 
-> - Rol `admin`: Puede crear y consultar notas
-> - Rol `user`: Solo puede consultar notas
-
-#### `POST /notes`
-Crear nota personal (solo admin)
-```json
 {
-    "title": "Mi Nota",
-    "content": "Contenido de la nota"
+  "title": "Mi Nota",
+  "content": "Contenido"
 }
 ```
-Respuesta: 
-- `201 Created` con datos de la nota (para admin)
-- `403 Forbidden` si el rol no es admin
 
-#### `GET /notes`
-Listar notas del usuario autenticado (disponible para todos los roles)
-Respuesta: `200 OK` con array de notas
-
-## 🧪 Tests
-
-Ejecutar suite completa de tests:
-```bash
-go test ./...
+**Listar notas**
+```http
+GET /notes
+Authorization: Bearer <token>
 ```
 
-## 📚 Documentación
 
-La documentación completa de la API está disponible en:
-- Swagger UI: `http://localhost:8080/swagger`
-- Docs: `docs/swagger.yaml`
+## Tests
 
-## 🔒 Seguridad
+Los tests unitarios están en la carpeta `internal/services`.
 
-- Todas las contraseñas se hashean con bcrypt
-- Tokens JWT con expiración configurable
+Para ejecutarlos desde Windows:
+```cmd
+go test ./internal/services
+```
+o para ver detalles:
+```cmd
+go test -v ./internal/services
+```
+
+## Documentación
+
+- Swagger UI: [http://localhost:8080/swagger](http://localhost:8080/swagger)
+- OpenAPI: `docs/swagger.yaml`
+
+## Seguridad
+
+- Contraseñas hasheadas con bcrypt
+- Expiración configurable de tokens
 - Control de sesiones simultáneas
-- Validación de entradas en todos los endpoints
+- Validación de entradas
 
-## 🤝 Contribuir
+## Estructura del proyecto
 
-1. Fork el proyecto
-2. Crea tu Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push al Branch (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.
-
-## ✨ Autor
-
-Ramiro Schettino - [GitHub](https://github.com/ramiroschettino)
-
-Registrar un usuario:
-Método: POST
-URL: http://localhost:8080/register
-Headers: Content-Type: application/json
-Body (raw, JSON): {"username":"testuser","password":"testpass","role":"user"}
-
-
-Login para obtener un token:
-Método: POST
-URL: http://localhost:8080/login
-Headers: Content-Type: application/json
-Body (raw, JSON): {"username":"testuser","password":"testpass"}
-
-
-Crear una nota:
-Método: POST
-URL: http://localhost:8080/notes
-Headers: Content-Type: application/json, Authorization: Bearer <token>
-Body (raw, JSON): {"title":"Mi Nota","content":"Contenido"}
-
-
-Listar notas:
-Método: GET
-URL: http://localhost:8080/notes
-Headers: Authorization: Bearer <token>
-
-
-
-Estructura del Proyecto
+```
 jwt-auth-api/
-├── .gitignore              # Ignora .env y volúmenes de Docker
-├── go.mod                  # Dependencias del módulo Go
-├── go.sum                  # Sumas de verificación de dependencias
-├── docker-compose.yml      # Configuración de PostgreSQL
-├── cmd/
-│   └── api/
-│       └── main.go         # Punto de entrada de la API
-├── internal/
-│   ├── config/             # Carga de configuración (.env)
-│   ├── models/             # Modelos de datos (User, Note)
-│   ├── repositories/       # Operaciones con la base de datos
-│   ├── services/           # Lógica de negocio (autenticación, notas)
-│   └── handlers/           # Manejadores de HTTP (rutas, controladores)
-├── docs/
-│   └── swagger.yaml        # Documentación OpenAPI/Swagger
-└── tests/                  # Pruebas unitarias y de integración
+├── cmd/api/main.go         # Punto de entrada
+├── internal/config/        # Configuración
+├── internal/models/        # Modelos de datos
+├── internal/repositories/  # Acceso a datos
+├── internal/services/      # Lógica de negocio
+├── internal/api/           # Rutas y controladores
+├── docs/swagger.yaml       # Documentación OpenAPI
+├── docker-compose.yml      # Base de datos
+└── tests/                  # Pruebas
+```
 
-## Documentación API
-La documentación OpenAPI/Swagger está disponible en `/docs/swagger.yaml`
+## Contribuir
 
-## Mejores Prácticas Implementadas
+¿Te gustaría mejorar el proyecto? ¡Bienvenido! Haz un fork, crea tu rama y abre un PR.
 
-- Manejo centralizado de errores
-- Documentación OpenAPI
-- Tests unitarios
-- Logs estructurados
-- JWT para autenticación
-- Clean Architecture
-- Docker para la base de datos
+## Autor
+
+Ramiro Schettino — [GitHub](https://github.com/ramiroschettino)

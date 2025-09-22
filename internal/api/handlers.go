@@ -33,22 +33,18 @@ func (h *APIHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Role     string `json:"role"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, ErrInvalidRequest)
+		WriteError(w, MapError(apperrors.ErrInvalidUser))
 		return
 	}
 
 	if req.Role != "user" && req.Role != "admin" {
-		WriteError(w, ErrInvalidRole)
+		WriteError(w, MapError(apperrors.ErrInvalidRole))
 		return
 	}
 
 	user, err := h.AuthService.Register(req.Username, req.Password, req.Role)
 	if err != nil {
-		if err == apperrors.ErrUserExists {
-			WriteError(w, ErrDuplicateUsername)
-		} else {
-			WriteError(w, MapError(err))
-		}
+		WriteError(w, MapError(err))
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -61,12 +57,12 @@ func (h *APIHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, ErrInvalidRequest)
+		WriteError(w, MapError(apperrors.ErrInvalidUser))
 		return
 	}
 
 	if req.Username == "" || req.Password == "" {
-		WriteError(w, NewAPIError(http.StatusBadRequest, "username and password are required"))
+		WriteError(w, MapError(apperrors.ErrInvalidUser))
 		return
 	}
 
@@ -78,14 +74,7 @@ func (h *APIHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.AuthService.Login(req.Username, req.Password, userAgent, ip)
 	if err != nil {
-		switch err {
-		case apperrors.ErrUserNotFound:
-			WriteError(w, NewAPIError(http.StatusNotFound, "user not found"))
-		case apperrors.ErrInvalidPassword:
-			WriteError(w, NewAPIError(http.StatusUnauthorized, "invalid password"))
-		default:
-			WriteError(w, ErrInternalServer)
-		}
+		WriteError(w, MapError(err))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -121,18 +110,23 @@ func (h *APIHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
 		Content string `json:"content"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, ErrInvalidRequest)
+		WriteError(w, MapError(apperrors.ErrInvalidUser))
 		return
 	}
 
-	// Verificar si el usuario tiene rol de admin
-	role := r.Context().Value(ctxRole).(string)
-	if role != "admin" {
+	roleVal := r.Context().Value(ctxRole)
+	role, ok := roleVal.(string)
+	if !ok || role != "admin" {
 		WriteError(w, NewAPIError(http.StatusForbidden, "solo los administradores pueden crear notas"))
 		return
 	}
 
-	userID := r.Context().Value(ctxUserID).(uint)
+	userIDVal := r.Context().Value(ctxUserID)
+	userID, ok := userIDVal.(uint)
+	if !ok {
+		WriteError(w, MapError(apperrors.ErrUnauthorized))
+		return
+	}
 	note, err := h.NoteService.CreateNote(req.Title, req.Content, userID)
 	if err != nil {
 		WriteError(w, MapError(err))
@@ -143,7 +137,12 @@ func (h *APIHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *APIHandler) GetNotes(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(ctxUserID).(uint)
+	userIDVal := r.Context().Value(ctxUserID)
+	userID, ok := userIDVal.(uint)
+	if !ok {
+		WriteError(w, MapError(apperrors.ErrUnauthorized))
+		return
+	}
 	notes, err := h.NoteService.GetNotesByUserID(userID)
 	if err != nil {
 		WriteError(w, MapError(err))
