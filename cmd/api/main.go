@@ -13,14 +13,18 @@ import (
 )
 
 func main() {
-	cfg := config.LoadConfig()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatal("Error al cargar la configuración: ", err)
+	}
+
 	db, err := gorm.Open(postgres.Open(cfg.DBDSN), &gorm.Config{})
 	if err != nil {
-		log.Fatal("Error conectando a la DB: ", err)
+		log.Fatal("Error al conectar a la base de datos: ", err)
 	}
 
 	if err := db.AutoMigrate(&models.User{}, &models.Note{}, &models.InvalidToken{}, &models.Session{}); err != nil {
-		log.Fatal("Error en la migración de la DB: ", err)
+		log.Fatal("Error en la migración de la base de datos: ", err)
 	}
 
 	userRepo := repositories.NewUserRepository(db)
@@ -32,8 +36,8 @@ func main() {
 	handler := api.NewAPIHandler(authService, noteService)
 	router := api.NewRouter(handler)
 
-	log.Println("Servidor escuchando en :8080")
-	if err := api.ListenAndServe(":8080", router); err != nil {
-		log.Fatal("Error iniciando servidor: ", err)
+	log.Printf("Servidor escuchando en :%s", cfg.Port)
+	if err := api.ListenAndServe(":"+cfg.Port, router); err != nil {
+		log.Fatal("Error al iniciar el servidor: ", err)
 	}
 }
