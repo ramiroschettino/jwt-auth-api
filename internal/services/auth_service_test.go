@@ -66,9 +66,8 @@ func (s *AuthServiceTestSuite) TestAuthService() {
 	t := s.T()
 
 	t.Run("Register", func(t *testing.T) {
-		t.Log("Inicio Register test")
+		// Registro exitoso
 		user, err := s.authService.Register("testuser", "testpass", "user")
-		t.Logf("Register result: user=%v, err=%v", user, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, user)
 		assert.Equal(t, "testuser", user.Username)
@@ -81,6 +80,16 @@ func (s *AuthServiceTestSuite) TestAuthService() {
 		t.Logf("DB user fetch: dbUser=%v, err=%v", dbUser, err)
 		assert.NoError(t, err)
 		assert.Equal(t, user.ID, dbUser.ID)
+
+		// Intento registro duplicado
+		_, err = s.authService.Register("testuser", "otherpass", "user")
+		assert.Error(t, err)
+		assert.Equal(t, apperrors.ErrUserExists, err)
+
+		// Registro con rol inválido
+		_, err = s.authService.Register("newuser", "pass", "invalid_role")
+		assert.Error(t, err)
+		assert.Equal(t, apperrors.ErrInvalidRole, err)
 	})
 
 	t.Run("Login", func(t *testing.T) {
@@ -151,35 +160,35 @@ func (s *AuthServiceTestSuite) TestAuthService() {
 		assert.NotNil(t, user)
 
 		// Login inicial
-		token, err := s.authService.Login("jwtuser", "jwtpass", "test-agent", "127.0.0.1")
+		tokenPair, err := s.authService.Login("jwtuser", "jwtpass", "test-agent", "127.0.0.1")
 		assert.NoError(t, err)
-		assert.NotEmpty(t, token)
+		assert.NotEmpty(t, tokenPair)
 
 		// Validar token
-		userID, role, err := s.authService.ValidateToken(token)
+		userID, role, err := s.authService.ValidateToken(tokenPair.AccessToken)
 		assert.NoError(t, err)
 		assert.Equal(t, user.ID, userID)
 		assert.Equal(t, "user", role)
 
 		// Logout → invalida token
-		err = s.authService.Logout(token)
+		err = s.authService.Logout(tokenPair.AccessToken)
 		assert.NoError(t, err)
 
-		_, _, err = s.authService.ValidateToken(token)
+		_, _, err = s.authService.ValidateToken(tokenPair.AccessToken)
 		assert.Error(t, err)
 
 		// Nuevo login genera token distinto
-		newToken, err := s.authService.Login("jwtuser", "jwtpass", "test-agent", "127.0.0.1")
+		newTokenPair, err := s.authService.Login("jwtuser", "jwtpass", "test-agent", "127.0.0.1")
 		assert.NoError(t, err)
-		assert.NotEmpty(t, newToken)
-		assert.NotEqual(t, token, newToken)
+		assert.NotEmpty(t, newTokenPair)
+		assert.NotEqual(t, tokenPair.AccessToken, newTokenPair.AccessToken)
 
 		// Token viejo sigue inválido
-		_, _, err = s.authService.ValidateToken(token)
+		_, _, err = s.authService.ValidateToken(tokenPair.AccessToken)
 		assert.Error(t, err)
 
 		// Nuevo token válido
-		userID, role, err = s.authService.ValidateToken(newToken)
+		userID, role, err = s.authService.ValidateToken(newTokenPair.AccessToken)
 		assert.NoError(t, err)
 		assert.Equal(t, user.ID, userID)
 		assert.Equal(t, "user", role)
@@ -193,19 +202,50 @@ func (s *AuthServiceTestSuite) TestAuthService() {
 		assert.NoError(t, err)
 
 		// Admin
-		adminToken, err := s.authService.Login("adminuser", "adminpass", "test-agent", "127.0.0.1")
+		adminTokenPair, err := s.authService.Login("adminuser", "adminpass", "test-agent", "127.0.0.1")
 		assert.NoError(t, err)
-		adminID, role, err := s.authService.ValidateToken(adminToken)
+		adminID, role, err := s.authService.ValidateToken(adminTokenPair.AccessToken)
 		assert.NoError(t, err)
 		assert.Equal(t, admin.ID, adminID)
 		assert.Equal(t, "admin", role)
 
 		// Usuario normal
-		userToken, err := s.authService.Login("regularuser", "userpass", "test-agent", "127.0.0.1")
+		userTokenPair, err := s.authService.Login("regularuser", "userpass", "test-agent", "127.0.0.1")
 		assert.NoError(t, err)
-		userID, role, err := s.authService.ValidateToken(userToken)
+		userID, role, err := s.authService.ValidateToken(userTokenPair.AccessToken)
 		assert.NoError(t, err)
 		assert.Equal(t, regularUser.ID, userID)
 		assert.Equal(t, "user", role)
+	})
+
+	t.Run("Session Management", func(t *testing.T) {
+		// Crear usuario
+		user, _ := s.authService.Register("sessionuser", "pass", "user")
+
+		// Login desde diferentes dispositivos
+		tokenPair1, err := s.authService.Login("sessionuser", "pass", "device1", "1.1.1.1")
+		assert.NoError(t, err)
+
+		tokenPair2, err := s.authService.Login("sessionuser", "pass", "device2", "2.2.2.2")
+		assert.NoError(t, err)
+
+		// Verificar que ambas sesiones están activas
+		var sessions []models.Session
+		s.db.Where("user_id = ? AND is_active = ?", user.ID, true).Find(&sessions)
+		assert.Len(t, sessions, 2)
+
+		// Logout de una sesión
+		err = s.authService.Logout(tokenPair1.AccessToken)
+		assert.NoError(t, err)
+
+		// Verificar que solo queda una sesión activa
+		s.db.Where("user_id = ? AND is_active = ?", user.ID, true).Find(&sessions)
+		assert.Len(t, sessions, 1)
+
+		// Verificar que la sesión restante corresponde al segundo token
+		var activeSession models.Session
+		err = s.db.Where("token = ? AND is_active = ?", tokenPair2.AccessToken, true).First(&activeSession).Error
+		assert.NoError(t, err)
+		assert.Equal(t, "device2", activeSession.UserAgent)
 	})
 }

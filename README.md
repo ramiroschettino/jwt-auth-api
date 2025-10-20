@@ -291,3 +291,33 @@ Si encuentras algún bug o tienes sugerencias, por favor abre un [issue en GitHu
 ---
 
 ¿Te fue útil este proyecto? ¡Dale una ⭐ en GitHub!
+
+## Pruebas
+
+La API ha sido exhaustivamente probada usando Postman. El conjunto de pruebas cubre los siguientes escenarios:
+
+### Pruebas de Autenticación
+- ✅ Registro de usuarios (roles Admin y Usuario regular)
+- ✅ Prevención de nombres de usuario duplicados
+- ✅ Inicio de sesión (Admin y Usuario)
+- ✅ Manejo de credenciales inválidas
+- ✅ Intentos de login con usuarios inexistentes
+
+### Pruebas de Autorización
+- ✅ Control de acceso a endpoints protegidos
+- ✅ Permisos basados en roles (Admin vs Usuario)
+- ✅ Manejo de tokens inválidos/faltantes
+
+### Pruebas de Gestión de Notas
+- ✅ Creación de notas (rol Admin)
+- ✅ Verificación de permisos de creación (rol Usuario)
+- ✅ Consulta de notas (ambos roles)
+- ✅ Validación de campos obligatorios
+
+### Pruebas de Gestión de Tokens
+- ✅ Expiración de tokens JWT
+- ✅ Funcionalidad de refresh token
+- ✅ Blacklist de tokens al cerrar sesión
+- ✅ Límite de sesiones (máximo 5 sesiones activas por usuario)
+
+Todos los casos de prueba han sido ejecutados y verificados, asegurando que se cumplen los requisitos de seguridad y funcionalidad de la API.

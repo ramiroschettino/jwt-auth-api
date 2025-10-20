@@ -39,6 +39,11 @@ func NewAuthService(userRepo *repositories.UserRepository, sessionRepo *reposito
 }
 
 func (s *AuthService) Register(username, password, role string) (*models.User, error) {
+	// Validar que el rol sea válido
+	if role != "admin" && role != "user" {
+		return nil, apperrors.ErrInvalidRole
+	}
+
 	if s.userRepo.IsUsernameTaken(username) {
 		return nil, apperrors.ErrUserExists
 	}
@@ -311,4 +316,8 @@ func (s *AuthService) generateToken(user *models.User, expiration time.Duration,
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(s.Cfg.JWTSecret))
+}
+
+func (s *AuthService) GetUserByUsername(username string) (*models.User, error) {
+	return s.userRepo.FindUserByUsername(username)
 }
