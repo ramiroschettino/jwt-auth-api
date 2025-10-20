@@ -72,13 +72,57 @@ func (h *APIHandler) Login(w http.ResponseWriter, r *http.Request) {
 		ip = fwdIP
 	}
 
-	token, err := h.AuthService.Login(req.Username, req.Password, userAgent, ip)
+	tokenPair, err := h.AuthService.Login(req.Username, req.Password, userAgent, ip)
 	if err != nil {
 		WriteError(w, MapError(err))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"token": token})
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":       "login successful",
+		"access_token":  tokenPair.AccessToken,
+		"refresh_token": tokenPair.RefreshToken,
+		"expires_in":    tokenPair.ExpiresIn,
+		"token_type":    "Bearer",
+	})
+}
+
+func (h *APIHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, NewAPIError(http.StatusBadRequest, "invalid request body"))
+		return
+	}
+
+	if req.RefreshToken == "" {
+		WriteError(w, NewAPIError(http.StatusBadRequest, "refresh_token is required"))
+		return
+	}
+
+	tokenPair, err := h.AuthService.RefreshToken(req.RefreshToken)
+	if err != nil {
+		if err == apperrors.ErrTokenExpired {
+			WriteError(w, NewAPIError(http.StatusUnauthorized, "refresh token expired"))
+			return
+		}
+		if err == apperrors.ErrTokenInvalid || err == apperrors.ErrTokenBlacklisted {
+			WriteError(w, NewAPIError(http.StatusUnauthorized, "refresh token invalid"))
+			return
+		}
+		WriteError(w, MapError(err))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":       "token refreshed successfully",
+		"access_token":  tokenPair.AccessToken,
+		"refresh_token": tokenPair.RefreshToken,
+		"expires_in":    tokenPair.ExpiresIn,
+		"token_type":    "Bearer",
+	})
 }
 
 func (h *APIHandler) JWTAuthMiddleware(next http.Handler) http.Handler {

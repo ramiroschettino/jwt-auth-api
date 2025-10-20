@@ -69,3 +69,12 @@ func (r *UserRepository) InvalidateUserTokens(userID uint) error {
 			"reason":     "user_logged_in",
 		}).Error
 }
+
+func (r *UserRepository) FindUserByID(id uint) (*models.User, error) {
+	var user models.User
+	err := r.db.Where("id = ?", id).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}

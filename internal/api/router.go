@@ -14,6 +14,7 @@ func NewRouter(handler *APIHandler) *chi.Mux {
 
 	r.Post("/register", handler.Register)
 	r.Post("/login", handler.Login)
+	r.Post("/refresh", handler.RefreshToken)
 
 	r.Group(func(r chi.Router) {
 		r.Use(handler.JWTAuthMiddleware)

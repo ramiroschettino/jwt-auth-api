@@ -12,7 +12,6 @@ type Config struct {
 	DBDSN             string
 	JWTSecret         string
 	JWTExpiration     time.Duration
-	RefreshSecret     string
 	RefreshExpiration time.Duration
 	Port              string
 	Env               string
@@ -23,7 +22,7 @@ func LoadConfig() (*Config, error) {
 
 	requiredEnvVars := []string{
 		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSLMODE",
-		"JWT_SECRET", "REFRESH_SECRET", "PORT", "ENV",
+		"JWT_SECRET", "PORT", "ENV",
 	}
 	for _, env := range requiredEnvVars {
 		if os.Getenv(env) == "" {
@@ -55,7 +54,6 @@ func LoadConfig() (*Config, error) {
 		DBDSN:             dsn,
 		JWTSecret:         os.Getenv("JWT_SECRET"),
 		JWTExpiration:     jwtExp,
-		RefreshSecret:     os.Getenv("REFRESH_SECRET"),
 		RefreshExpiration: refreshExp,
 		Port:              os.Getenv("PORT"),
 		Env:               os.Getenv("ENV"),

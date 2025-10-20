@@ -137,3 +137,24 @@ func (r *SessionRepository) CleanupExpiredSessions() error {
 	return r.db.Where("expires_at < ?", time.Now()).
 		Delete(&models.Session{}).Error
 }
+
+func (r *SessionRepository) GetActiveSessionByRefreshToken(refreshToken string) (*models.Session, error) {
+	var session models.Session
+	err := r.db.Where("refresh_token = ? AND is_active = ?", refreshToken, true).First(&session).Error
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+func (r *SessionRepository) UpdateTokens(oldRefreshToken, newAccessToken, newRefreshToken string, newExpiresAt, newRefreshExpiresAt time.Time) error {
+	return r.db.Model(&models.Session{}).
+		Where("refresh_token = ?", oldRefreshToken).
+		Updates(map[string]interface{}{
+			"token":              newAccessToken,
+			"refresh_token":      newRefreshToken,
+			"expires_at":         newExpiresAt,
+			"refresh_expires_at": newRefreshExpiresAt,
+			"last_activity":      time.Now(),
+		}).Error
+}
